@@ -1,5 +1,5 @@
-use anyhow::{anyhow, Result};
 use anyhow_ext::Context;
+use anyhow_ext::{anyhow, Result};
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use tracing::trace;
@@ -121,7 +121,7 @@ pub struct ListObjectParams {
 
 #[cfg(test)]
 mod test {
-	use anyhow::Result;
+	use anyhow_ext::Result;
 	use tracing_test::traced_test;
 
 	use crate::object_api::ListObjectParamsBuilder;

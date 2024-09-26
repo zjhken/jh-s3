@@ -4,8 +4,8 @@ pub mod object_api;
 
 use std::collections::HashMap;
 
-use anyhow::anyhow;
-use anyhow::Result;
+use anyhow_ext::anyhow;
+use anyhow_ext::Result;
 use derive_builder::Builder;
 use serde::Deserialize;
 use serde::Serialize;
