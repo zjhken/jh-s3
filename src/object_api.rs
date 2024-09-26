@@ -129,7 +129,7 @@ mod test {
 	#[test]
 	#[traced_test]
 	fn test_builder() -> Result<()> {
-		let mut req = ListObjectParamsBuilder::default()
+		let req = ListObjectParamsBuilder::default()
 			// .prefix("/")
 			.delimiter("/")
 			.build()?;

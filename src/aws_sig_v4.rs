@@ -10,7 +10,6 @@ use crypto::hmac::Hmac;
 use crypto::mac::Mac;
 use crypto::sha2::Sha256;
 use surf::Request;
-use tracing_subscriber::fmt::time;
 
 const EMPTY_BODY_SHA256: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 const REGION: &str = "us-east-1";
