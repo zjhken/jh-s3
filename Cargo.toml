@@ -15,6 +15,7 @@ rust-crypto = "0.2.36"
 serde = { version = "1.0.202", features = ["derive"] }
 serde-xml-rs = "0.6.0"
 surf = { version = "2.3.2", default-features = false, features = ["h1-client-rustls", "rustls_crate", "encoding"] }
+toml = "0.8.19"
 tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
 tracing-test = "0.2.4"

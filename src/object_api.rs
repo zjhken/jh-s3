@@ -111,12 +111,12 @@ pub struct ListObjectParams {
 	#[serde(rename(serialize = "list-type"))]
 	#[builder(default = "2u8")]
 	list_type: u8, // 2 means the V2 ListObjectsV2
-	prefix: String,
-	delimiter: String,
+	prefix: Option<String>,
+	delimiter: Option<String>,
 	#[serde(rename(serialize = "continuation-token"))]
-	continuation_token: String,
+	continuation_token: Option<String>,
 	#[serde(rename(serialize = "max-keys"))]
-	max_keys: String,
+	max_keys: Option<String>,
 }
 
 #[cfg(test)]
@@ -130,8 +130,8 @@ mod test {
 	#[traced_test]
 	fn test_builder() -> Result<()> {
 		let req = ListObjectParamsBuilder::default()
-			// .prefix("/")
-			.delimiter("/")
+			.prefix(Some("/".to_owned()))
+			.delimiter(Some("/".to_owned()))
 			.build()?;
 		println!("{:?}", req);
 		Ok(())

@@ -1,0 +1,4 @@
+access_key = "aaa"
+secret_key = "bbb"
+bucket = "bucket"
+endpoint = "https://endpoint"

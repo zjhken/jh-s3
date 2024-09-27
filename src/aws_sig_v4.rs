@@ -10,6 +10,7 @@ use crypto::hmac::Hmac;
 use crypto::mac::Mac;
 use crypto::sha2::Sha256;
 use surf::Request;
+use tracing::info;
 
 const EMPTY_BODY_SHA256: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 const REGION: &str = "us-east-1";
@@ -22,13 +23,17 @@ pub fn auth(
 	access_key: &str,
 	secret_key: &str,
 	mut req: Request,
-	timestamp: Option<DateTime<Utc>>,
+	// timestamp: Option<DateTime<Utc>>,
+	timestamp: Option<String>,
 ) -> Result<Request> {
-	let timestamp = timestamp
-		.unwrap_or(Utc::now())
-		.format(AWS_ISO8601_FORMAT)
-		.to_string();
+	let full_url = req.url().to_string();
+	info!(full_url);
+	let timestamp = timestamp.unwrap_or_else(|| Utc::now().format(AWS_ISO8601_FORMAT).to_string());
+	info!(timestamp);
 	req.insert_header("x-amz-date", &timestamp);
+	req.insert_header("x-amz-content-sha256", EMPTY_BODY_SHA256);
+	let host = req.url().host_str().unwrap().to_owned(); // normally surf will insert Host for us but we need to put it into caculation
+	req.insert_header("host", host);
 	let method = req.method().to_string();
 	let sorted_query_str = req
 		.url()
@@ -75,7 +80,9 @@ pub fn auth(
 	let signed_hex = hex::encode(signed_bytes);
 
 	let auth_str = format!("{AWS_AUTH_METHOD} Credential={access_key}/{short_date}/{REGION}/{SERVICE}/{TERMINATOR}, SignedHeaders={signed_headers_str}, Signature={signed_hex}");
+	info!(auth_str);
 	req.insert_header("Authorization", auth_str);
+	// req.remove_header("host"); // to avoid duplicate host headers
 	return Ok(req);
 }
 
