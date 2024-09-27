@@ -31,6 +31,7 @@ pub fn auth(
 	let timestamp = timestamp.unwrap_or_else(|| Utc::now().format(AWS_ISO8601_FORMAT).to_string());
 	info!(timestamp);
 	req.insert_header("x-amz-date", &timestamp);
+	// TODO: what if there is body?
 	req.insert_header("x-amz-content-sha256", EMPTY_BODY_SHA256);
 	let host = req.url().host_str().unwrap().to_owned(); // normally surf will insert Host for us but we need to put it into caculation
 	req.insert_header("host", host);
@@ -62,6 +63,7 @@ pub fn auth(
 		.collect::<BTreeMap<String, &str>>();
 	let canonical_headers_str = gen_canonical_headers_str(&canonical_headers);
 	let signed_headers_str = gen_signed_headers_str(&canonical_headers);
+	// TODO: what if there is body?
 	let canonical_request = format!("{method}\n{uri}\n{sorted_query_str}\n{canonical_headers_str}\n{signed_headers_str}\n{EMPTY_BODY_SHA256}");
 
 	let short_date = timestamp

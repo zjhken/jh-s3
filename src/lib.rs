@@ -103,12 +103,7 @@ impl S3Client {
 			builder = builder.body(body);
 		}
 		let req = builder.build();
-		let req = crate::aws_sig_v4::auth(
-			&self.access_key,
-			&self.secret_key,
-			req,
-			Some("20240927T011346Z".to_string()),
-		)?;
+		let req = crate::aws_sig_v4::auth(&self.access_key, &self.secret_key, req, None)?;
 		let resp = self
 			.http_client
 			.send(req)
