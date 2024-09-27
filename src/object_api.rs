@@ -14,7 +14,7 @@ impl S3Client {
 				surf::http::Method::Get,
 				Some(&params),
 				None,
-				None::<&str>,
+				None::<&str>, // TODO: streaming upload
 			)
 			.await
 			.dot()?;
