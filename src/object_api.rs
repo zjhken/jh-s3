@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use anyhow_ext::Context;
 use anyhow_ext::{anyhow, Result};
 use derive_builder::Builder;
@@ -31,6 +33,12 @@ impl S3Client {
 			let error: S3Error = serde_xml_rs::from_reader(xml.as_bytes()).dot()?;
 			return Err(anyhow!("s3 error = {:?}", error));
 		}
+	}
+	pub async fn put_object<P>(&self, path: P) -> Result<()>
+	where
+		P: AsRef<Path>,
+	{
+		unimplemented!()
 	}
 }
 
