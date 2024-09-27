@@ -129,7 +129,11 @@ pub struct ListObjectParams {
 
 #[cfg(test)]
 mod test {
+	use async_std::{fs::File, task};
+
 	use anyhow_ext::Result;
+	use async_std::io::BufReader;
+	use surf::{http::headers::CONTENT_LENGTH, Body};
 	use tracing_test::traced_test;
 
 	use crate::object_api::ListObjectParamsBuilder;
@@ -142,6 +146,27 @@ mod test {
 			.delimiter(Some("/".to_owned()))
 			.build()?;
 		println!("{:?}", req);
+		Ok(())
+	}
+
+	async fn upload_file(file_path: &str) -> Result<(), surf::Error> {
+		task::block_on(async {
+			let file = File::open(file_path).await?;
+			let file_size = file.metadata().await?.len();
+			let file_reader = BufReader::new(file);
+
+			let client = surf::client();
+			let request = client
+				.post("https://your-upload-endpoint")
+				.header(CONTENT_LENGTH, file_size.to_string())
+				.body(Body::from_reader(file_reader, None));
+
+			// let response = request.send_bytes().await?;
+
+			// Handle the response here
+			// println!("Upload status: {}", response.status());
+		});
+
 		Ok(())
 	}
 }
