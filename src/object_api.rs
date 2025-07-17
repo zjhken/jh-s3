@@ -149,8 +149,8 @@ mod test {
 		Ok(())
 	}
 
-	async fn upload_file(file_path: &str) -> Result<(), surf::Error> {
-		task::block_on(async {
+	async fn upload_file(file_path: &str) -> Result<()> {
+		return task::block_on(async {
 			let file = File::open(file_path).await?;
 			let file_size = file.metadata().await?.len();
 			let file_reader = BufReader::new(file);
@@ -165,8 +165,7 @@ mod test {
 
 			// Handle the response here
 			// println!("Upload status: {}", response.status());
+			Ok::<(), anyhow_ext::Error>(())
 		});
-
-		Ok(())
 	}
 }
