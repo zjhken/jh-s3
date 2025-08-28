@@ -1,7 +1,8 @@
 use std::path::Path;
 
 use anyhow_ext::Context;
-use anyhow_ext::{anyhow, Result};
+use anyhow_ext::{Result, anyhow};
+use std::path::PathBuf;
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use tracing::trace;
@@ -9,15 +10,26 @@ use tracing::trace;
 use crate::{S3Client, S3Error};
 
 impl S3Client {
-	
 	pub async fn put_object<P>(&self, key: &str, path: P) -> Result<()>
 	where
 		P: AsRef<Path>,
 	{
-		let S3Client{endpoint, bucket, access_key, secret_key,..} = self;
+		let S3Client {
+			endpoint,
+			bucket,
+			access_key,
+			secret_key,
+			..
+		} = self;
 		let file = async_std::fs::File::open(path.as_ref()).await.dot()?;
-		// self.send(Some(key), Method::Put, None, None, Some(file))
-			
+		let resp = self.send(
+			Some(key),
+			"PUT",
+			None::<&u64>,
+			None,
+			Some(crate::S3Body::Path(PathBuf::from(path.as_ref()))),
+		).await.dot();
+
 		Ok(())
 	}
 }
@@ -88,7 +100,3 @@ pub struct Entry {
 	key: String,
 	value: String,
 }
-
-
-
-

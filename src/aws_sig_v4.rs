@@ -42,8 +42,16 @@ pub async  fn auth(
 
 	if let Some(body) = body {
 		let hash_hex = match body {
-			S3Body::Bytes(data) => cal_sha256_from_bytes(&data),
-			S3Body::Path(path_buf) => cal_sha256_from_file(path_buf).await.dot()?,
+			S3Body::Bytes(data) => {
+				// TODO:
+				unimplemented!();
+				// req.body = zjhttpc::misc::Body::ByteSlice
+				cal_sha256_from_bytes(&data)
+			},
+			S3Body::Path(path_buf) => {
+				req = req.set_body_file(&path_buf).await.dot()?;
+				cal_sha256_from_file(path_buf).await.dot()?
+			},
 		};
 		req = req.add_header("x-amz-content-sha256", hash_hex);
 	} else {
