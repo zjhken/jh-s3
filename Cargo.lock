@@ -3296,9 +3296,9 @@ dependencies = [
 
 [[package]]
 name = "zjhttpc"
-version = "0.1.3"
+version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "43cc4a68bd08a5ef1f6063a7eb75c907364a5646a3a29f41c8d39c6cc675608e"
+checksum = "8d1b7922eea9e3d84f7c6bceed6bc04141ed51cef3f3394f5272761d8e7903c0"
 dependencies = [
  "anyhow_ext",
  "async-std",

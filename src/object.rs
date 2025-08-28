@@ -2,10 +2,10 @@ use std::path::Path;
 
 use anyhow_ext::Context;
 use anyhow_ext::{Result, anyhow};
-use std::path::PathBuf;
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
-use tracing::trace;
+use std::path::PathBuf;
+use tracing::{info, trace};
 
 use crate::{S3Client, S3Error};
 
@@ -14,89 +14,37 @@ impl S3Client {
 	where
 		P: AsRef<Path>,
 	{
-		let S3Client {
-			endpoint,
-			bucket,
-			access_key,
-			secret_key,
-			..
-		} = self;
-		let file = async_std::fs::File::open(path.as_ref()).await.dot()?;
-		let resp = self.send(
-			Some(key),
-			"PUT",
-			None::<&u64>,
-			None,
-			Some(crate::S3Body::Path(PathBuf::from(path.as_ref()))),
-		).await.dot();
+		let mut resp = self
+			.send(
+				Some(key),
+				"PUT",
+				None::<&u64>,
+				None,
+				Some(crate::S3Body::Path(PathBuf::from(path.as_ref()))),
+			)
+			.await
+			.dot()?;
 
+		info!(resp.status_code);
+		let body = resp.body_string().await.dot()?;
+		info!(body);
 		Ok(())
 	}
 }
 
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "PascalCase")]
-pub struct ListBucketResult {
-	pub name: String,
-	pub prefix: Option<String>,
-	pub key_count: Option<u16>,
-	pub max_keys: u16,
-	pub delimiter: Option<String>,
-	pub is_truncated: bool,
-	pub next_continuation_token: Option<String>,
-	pub server_side_encryption_enabled: Option<bool>,
-	pub common_prefixes: Option<Vec<CommonPrefexes>>, // if there is no file with a prefix, then show this field to indicate user to use a longer prefix
-	pub object_matches: Option<ObjectMatches>,        // if use metadata search, then show
-	pub contents: Option<Vec<Content>>,
-}
+#[cfg(test)]
+mod tests {
+	use async_std::task;
 
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "PascalCase")]
-pub struct CommonPrefexes {
-	pub prefix: String,
-}
+	use super::*;
 
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct ObjectMatches {
-	pub object: Option<Vec<Object>>,
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct Content {
-	pub object: Option<Vec<Object>>,
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct Object {
-	pub object_name: Option<String>,
-	pub object_id: Option<String>,
-	pub version_id: Option<String>,
-	pub query_mds: Option<Vec<QueryMds>>,
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct QueryMds {
-	r#type: QueryMetadataType,
-	md_map: MdMap,
-}
-#[derive(Deserialize, Debug)]
-pub enum QueryMetadataType {
-	SYSMD,
-	USERMD,
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct MdMap {
-	entry: Vec<Entry>,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct Entry {
-	key: String,
-	value: String,
+	#[test]
+	#[tracing_test::traced_test]
+	fn test_list_bucket() -> Result<()> {
+		let s3 = S3Client::from_toml_config("config.toml")?;
+		task::block_on(async {
+			s3.put_object("test.bin", "Cargo.toml").await.unwrap();
+		});
+		return Ok(());
+	}
 }
