@@ -1,11 +1,9 @@
-use std::path::Path;
 
 use anyhow_ext::Context;
 use anyhow_ext::{Result, anyhow};
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use tracing::trace;
-use zjhttpc::misc::Body;
 
 use crate::{S3Client, S3Error};
 

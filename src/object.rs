@@ -1,13 +1,11 @@
 use std::path::Path;
 
 use anyhow_ext::Context;
-use anyhow_ext::{Result, anyhow};
-use derive_builder::Builder;
-use serde::{Deserialize, Serialize};
+use anyhow_ext::Result;
 use std::path::PathBuf;
-use tracing::{info, trace};
+use tracing::info;
 
-use crate::{S3Client, S3Error};
+use crate::S3Client;
 
 impl S3Client {
 	pub async fn put_object<P>(&self, key: &str, path: P) -> Result<()>

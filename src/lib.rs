@@ -6,7 +6,6 @@ pub mod object;
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
-use std::sync::LazyLock;
 
 use anyhow_ext::Context;
 use anyhow_ext::Result;
@@ -15,9 +14,7 @@ use derive_builder::Builder;
 use serde::Deserialize;
 use serde::Serialize;
 use std::path::Path;
-use tracing::info;
 use zjhttpc::client::ZJHttpClient;
-use zjhttpc::misc::Body;
 use zjhttpc::requestx::Request;
 use zjhttpc::response::Response;
 use zjhttpc::url::Url;
