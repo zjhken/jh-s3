@@ -42,15 +42,34 @@ impl S3Client {
 #[cfg(test)]
 mod tests {
 	use async_std::task;
+use tracing::error;
 
 	use super::*;
 
 	#[test]
 	#[tracing_test::traced_test]
-	fn test_list_bucket() -> Result<()> {
+	fn test_put_object() -> Result<()> {
 		let s3 = S3Client::from_toml_config("config.toml")?;
 		task::block_on(async {
 			s3.put_object("test.bin", "Cargo.toml").await.unwrap();
+		});
+		return Ok(());
+	}
+
+	#[test]
+	#[tracing_test::traced_test]
+	fn test_get_object() -> Result<()> {
+		let s3 = S3Client::from_toml_config("config.toml")?;
+		task::block_on(async {
+			let mut resp = s3.get_object("test.bin").await.unwrap();
+			if resp.is_success() {
+				let text = resp.body_string().await.unwrap();
+				info!(text);
+			} else {
+				let msg = resp.body_string().await.unwrap();
+				error!(resp.status_code, msg)
+
+			}
 		});
 		return Ok(());
 	}
