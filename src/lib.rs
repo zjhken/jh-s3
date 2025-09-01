@@ -104,16 +104,11 @@ impl S3Client {
 			req = req.set_queries_serde(queries).dot()?;
 		}
 		req = crate::aws_sig_v4::auth(&self.access_key, &self.secret_key, req, None, body).await.dot()?;
-		let mut resp = self
+		let resp = self
 			.httpc
 			.send(&mut req)
 			.await
 			.map_err(|err| anyhow!(err.to_string()))?;
-		if !resp.is_success() {
-			let msg = resp.body_string().await.dot()?;
-			let code = resp.status_code;
-			return Err(anyhow!("bad status code.code={code},msg={msg}"));
-		}
 		Ok(resp)
 	}
 
