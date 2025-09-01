@@ -9,11 +9,11 @@ use zjhttpc::response::Response;
 use crate::S3Client;
 
 impl S3Client {
-	pub async fn put_object<P>(&self, key: &str, path: P) -> Result<()>
+	pub async fn put_object<P>(&self, key: &str, path: P) -> Result<Response>
 	where
 		P: AsRef<Path>,
 	{
-		let mut resp = self
+		let resp = self
 			.send(
 				Some(key),
 				"PUT",
@@ -24,10 +24,7 @@ impl S3Client {
 			.await
 			.dot()?;
 
-		info!(resp.status_code);
-		let body = resp.body_string().await.dot()?;
-		info!(body);
-		Ok(())
+		Ok(resp)
 	}
 
 	pub async fn get_object(&self, key: &str) -> Result<Response> {
