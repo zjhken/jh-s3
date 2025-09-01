@@ -4,6 +4,7 @@ use anyhow_ext::Context;
 use anyhow_ext::Result;
 use std::path::PathBuf;
 use tracing::info;
+use zjhttpc::response::Response;
 
 use crate::S3Client;
 
@@ -27,6 +28,14 @@ impl S3Client {
 		let body = resp.body_string().await.dot()?;
 		info!(body);
 		Ok(())
+	}
+
+	pub async fn get_object(&self, key: &str) -> Result<Response> {
+		let resp = self
+			.send(Some(key), "GET", None::<&u64>, None, None)
+			.await
+			.dot()?;
+		return Ok(resp);
 	}
 }
 
