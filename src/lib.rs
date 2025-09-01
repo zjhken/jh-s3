@@ -19,18 +19,12 @@ use zjhttpc::requestx::Request;
 use zjhttpc::response::Response;
 use zjhttpc::url::Url;
 
-#[derive(Serialize, Default, Builder, Debug)]
-#[builder(setter(into))]
-// #[builder(pattern = "owned")]
-#[builder(default)]
+#[derive(Default, Debug)]
 pub struct S3Client {
 	pub endpoint: String,
 	pub bucket: String,
 	pub access_key: String,
 	pub secret_key: String,
-	// #[serde(skip)]
-	// pub http_client: surf::Client,
-	#[serde(skip)]
 	pub httpc: ZJHttpClient,
 }
 
@@ -102,7 +96,7 @@ impl S3Client {
 			url.push_str(p);
 		}
 		let url = Url::parse(&url)?;
-		let mut req = Request::new(url).dot()?.method(method);
+		let mut req = Request::new(method, url).dot()?;
 		if let Some(headers) = headers {
 			req = req.set_headers_nondup(headers);
 		}
@@ -178,10 +172,15 @@ pub struct S3Error {
 #[cfg(test)]
 mod test {
 	use crate::{
-		S3Client,
-		bucket::{ListBucketParams, ListBucketParamsBuilder},
+		bucket::{ListBucketParams, ListBucketParamsBuilder}, S3Client
 	};
 	use anyhow_ext::Result;
 	use async_std::task;
 	use tracing::info;
+
+	#[test]
+	fn test_s3_client() {
+		// let s3client = S3Client::new(endpoint, bucket, access_key, secret_key, trust_cert_path)
+		
+	}
 }

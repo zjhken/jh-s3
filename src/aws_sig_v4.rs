@@ -190,8 +190,7 @@ mod tests {
 		let timestamp = "20230615T123456Z".to_string();
 
 		let url = Url::parse("https://test-bucket.s3.amazonaws.com/test.txt")?;
-		let mut req = Request::new(url).unwrap();
-		req = req.method("GET");
+		let mut req = Request::new("GET", url).unwrap();
 
 		let signed_req = task::block_on(async {
 			auth(access_key, secret_key, req, Some(timestamp), None).await.dot().unwrap()
