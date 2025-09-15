@@ -1330,7 +1330,7 @@ checksum = "4a5f13b858c8d314ee3e8f639011f7ccefe71f97f96e50151fb991f267928e2c"
 
 [[package]]
 name = "jh-s3"
-version = "0.4.5"
+version = "0.4.6"
 dependencies = [
  "anyhow",
  "anyhow_ext",
@@ -3354,9 +3354,9 @@ dependencies = [
 
 [[package]]
 name = "zjhttpc"
-version = "0.1.8"
+version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81fa19441ff9c56c98f9b80bfe985252e06c271bd79debb2d8ed541454da08f9"
+checksum = "4defaa7dc1747b2eb71a8c2ea583a46a5aef61824a0185add40d68f04c927a0d"
 dependencies = [
  "anyhow",
  "anyhow_ext",
