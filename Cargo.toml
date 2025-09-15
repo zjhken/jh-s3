@@ -1,6 +1,6 @@
 [package]
 name = "jh-s3"
-version = "0.4.3"
+version = "0.4.4"
 edition = "2024"
 license = "GPL-3.0-or-later"
 description = "S3 protocol client in Rust"
@@ -9,7 +9,7 @@ repository = "https://github.com/zjhken/jh-s3"
 readme = "README.md"
 
 [dependencies]
-anyhow = "1.0.83"
+anyhow = "1.0.99"
 anyhow_ext = "0.2.1"
 async-std = "1.12.0"
 chrono = "0.4.38"
@@ -26,7 +26,7 @@ tracing-subscriber = "0.3.18"
 tracing-test = "0.2.4"
 url-escape = "0.1.1"
 # zjhttpc = {path = "../zjhttpc"}
-zjhttpc = "0.1.6"
+zjhttpc = "0.1.7"
 
 [dev-dependencies]
 tempfile = "3.21.0"
