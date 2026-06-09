@@ -10,7 +10,6 @@ use std::path::PathBuf;
 use anyhow_ext::Context;
 use anyhow_ext::Result;
 use anyhow_ext::anyhow;
-use derive_builder::Builder;
 use serde::Deserialize;
 use serde::Serialize;
 use std::path::Path;
@@ -19,7 +18,7 @@ use zjhttpc::requestx::Request;
 use zjhttpc::response::Response;
 use zjhttpc::url::Url;
 
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct S3Client {
 	pub endpoint: String,
 	pub bucket: String,
@@ -44,29 +43,21 @@ impl S3Client {
 		access_key: String,
 		secret_key: String,
 		trust_cert_path: Option<String>,
-	) -> Self {
-		// let http_client: surf::Client = match trust_cert_path {
-		// 	Some(path) => {
-		// 		todo!()
-		// 	}
-		// 	None => {
-		// 		let surf_config = surf::Config::new();
-		// 		surf_config.try_into().unwrap()
-		// 	}
-		// };
-		let mut httpc = ZJHttpClient::new();
+	) -> Result<Self> {
+		let mut builder = ZJHttpClient::builder();
 		if let Some(cert_path) = trust_cert_path {
-			httpc.global_trust_store_pem =
-				Some(zjhttpc::misc::TrustStorePem::Path(PathBuf::from(cert_path)));
+			builder.set_global_trust_store_pem(zjhttpc::misc::TrustStorePem::Path(PathBuf::from(
+				cert_path,
+			)));
 		}
-		return S3Client {
+		let httpc = builder.build().map_err(|e| anyhow!(e.to_string()))?;
+		Ok(S3Client {
 			endpoint,
 			bucket,
 			access_key,
 			secret_key,
-			// http_client,
 			httpc,
-		};
+		})
 	}
 	pub fn from_toml_config<P>(path: P) -> Result<Self>
 	where
@@ -74,13 +65,13 @@ impl S3Client {
 	{
 		let txt = fs::read_to_string(path)?;
 		let c: S3Config = toml::from_str(&txt)?;
-		return Ok(Self::new(
+		Self::new(
 			c.endpoint,
 			c.bucket,
 			c.access_key,
 			c.secret_key,
 			c.trust_cert_path,
-		));
+		)
 	}
 	pub async fn send(
 		&self,
@@ -103,7 +94,9 @@ impl S3Client {
 		if let Some(queries) = queries {
 			req = req.set_queries_serde(queries).dot()?;
 		}
-		req = crate::aws_sig_v4::auth(&self.access_key, &self.secret_key, req, None, body).await.dot()?;
+		req = crate::aws_sig_v4::auth(&self.access_key, &self.secret_key, req, None, body)
+			.await
+			.dot()?;
 		let resp = self
 			.httpc
 			.send(&mut req)
@@ -152,7 +145,7 @@ impl S3Client {
 
 pub enum S3Body {
 	Bytes(Vec<u8>),
-	Path(PathBuf)
+	Path(PathBuf),
 }
 
 #[derive(Deserialize, Debug)]
@@ -166,16 +159,11 @@ pub struct S3Error {
 
 #[cfg(test)]
 mod test {
-	use crate::{
-		bucket::{ListBucketParams, ListBucketParamsBuilder}, S3Client
-	};
+	use crate::S3Client;
 	use anyhow_ext::Result;
-	use async_std::task;
-	use tracing::info;
 
 	#[test]
 	fn test_s3_client() {
 		// let s3client = S3Client::new(endpoint, bucket, access_key, secret_key, trust_cert_path)
-		
 	}
 }

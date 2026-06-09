@@ -34,6 +34,14 @@ impl S3Client {
 			.dot()?;
 		return Ok(resp);
 	}
+
+	pub async fn delete_object(&self, key: &str) -> Result<Response> {
+		let resp = self
+			.send(Some(key), "DELETE", None::<&u64>, None, None)
+			.await
+			.dot()?;
+		Ok(resp)
+	}
 }
 
 #[cfg(test)]
