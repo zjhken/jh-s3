@@ -104,43 +104,6 @@ impl S3Client {
 			.map_err(|err| anyhow!(err.to_string()))?;
 		Ok(resp)
 	}
-
-	// pub async fn send_via_surf(
-	// 	&self,
-	// 	path: Option<&str>,
-	// 	method: surf::http::Method,
-	// 	queries: Option<&impl Serialize>,
-	// 	headers: Option<HashMap<String, String>>,
-	// 	body: Option<impl Into<surf::Body>>,
-	// ) -> Result<surf::Response> {
-	// 	let mut url = format!("{}/{}", self.endpoint, self.bucket);
-	// 	if let Some(p) = path {
-	// 		url.push_str("/");
-	// 		url.push_str(p);
-	// 	}
-	// 	let url = Url::parse(&url)?;
-	// 	let mut builder = surf::RequestBuilder::new(method, url)
-	// 		.query(&queries)
-	// 		.map_err(|err| anyhow!(err.to_string()))?;
-	// 	if let Some(map) = headers {
-	// 		for (key, value) in map.into_iter() {
-	// 			let key = surf::http::headers::HeaderName::from_bytes(key.into_bytes()).unwrap();
-	// 			builder = builder.header(&key, value);
-	// 		}
-	// 	}
-	// 	if let Some(body) = body {
-	// 		builder = builder.body(body);
-	// 	}
-	// 	let req = builder.build();
-	// 	let req = crate::aws_sig_v4_surf::auth(&self.access_key, &self.secret_key, req, None)?;
-	// 	let surf_config = surf::Config::new();
-	// 	let http_client: surf::Client = surf_config.try_into().dot()?;
-	// 	let resp = http_client
-	// 		.send(req)
-	// 		.await
-	// 		.map_err(|err| anyhow!(err.to_string()))?;
-	// 	Ok(resp)
-	// }
 }
 
 pub enum S3Body {
