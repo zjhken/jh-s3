@@ -1343,7 +1343,6 @@ checksum = "4a5f13b858c8d314ee3e8f639011f7ccefe71f97f96e50151fb991f267928e2c"
 name = "jh-s3"
 version = "0.5.1"
 dependencies = [
- "anyhow",
  "anyhow_ext",
  "async-std",
  "chrono",

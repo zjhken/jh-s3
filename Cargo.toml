@@ -9,7 +9,6 @@ repository = "https://github.com/zjhken/jh-s3"
 readme = "README.md"
 
 [dependencies]
-anyhow = "1.0.99"
 anyhow_ext = "0.2.1"
 async-std = "1.12.0"
 chrono = "0.4.38"
