@@ -4,7 +4,6 @@ use std::path::Path;
 use anyhow_ext::Context;
 use anyhow_ext::Result;
 use std::path::PathBuf;
-use tracing::info;
 use zjhttpc::response::Response;
 
 use crate::S3Client;

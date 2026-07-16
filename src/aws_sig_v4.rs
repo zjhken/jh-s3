@@ -180,7 +180,7 @@ fn gen_signed_headers_str(canonical_headers: &BTreeMap<String, &str>) -> String 
 mod tests {
 
 	use super::*;
-	use async_std::fs::{File, write};
+	use async_std::fs::write;
 	use async_std::task;
 	use tempfile::tempdir;
 	use zjhttpc::requestx::Request;
@@ -193,7 +193,7 @@ mod tests {
 		let timestamp = "20230615T123456Z".to_string();
 
 		let url = Url::parse("https://test-bucket.s3.amazonaws.com/test.txt")?;
-		let mut req = Request::new("GET", url).unwrap();
+		let req = Request::new("GET", url).unwrap();
 
 		let signed_req = task::block_on(async {
 			auth(access_key, secret_key, req, Some(timestamp), None)
@@ -231,7 +231,7 @@ mod tests {
 				.first()
 				.unwrap()
 				.as_str(),
-			"AWS4-HMAC-SHA256 Credential=AKIAIOSFODNN7EXAMPLE/20230615/us-east-1/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=c16688c87adce6773bcc42d4eb56e4c7d67079cb9eeb1d4f55771cd5593c93a2"
+			"AWS4-HMAC-SHA256 Credential=AKIAIOSFODNN7EXAMPLE/20230615/us-east-1/s3/aws4_request, SignedHeaders=host;user-agent;x-amz-content-sha256;x-amz-date, Signature=c38d3d7c60599b2dc1041663066cffd6cac15623feacbc4da361744bcfafe383"
 		);
 		assert!(
 			signed_req
@@ -249,17 +249,17 @@ mod tests {
 	#[test]
 	fn test_cal_sha256_in_stream() -> Result<()> {
 		task::block_on(async {
-			// let dir = tempdir()?;
-			// let file_path = dir.path().join("test.txt");
-			// let test_content = "Hello, world!";
-			// write(&file_path, test_content).await?;
+			let dir = tempdir()?;
+			let file_path = dir.path().join("test.txt");
+			let test_content = "Hello, world!";
+			write(&file_path, test_content).await?;
 
-			let hash = cal_sha256_from_file("Cargo.toml").await?;
+			let hash = cal_sha256_from_file(&file_path).await?;
 
 			// Pre-calculated SHA256 hash of "Hello, world!"
 			assert_eq!(
 				hash,
-				"53be68e5a8a9e15c4b7b91a727aa4da3045f0033a8958f89d4a4d728b76aeda4"
+				"315f5bdb76d078c43b8ac0064e4a0164612b1fce77c869345bfc94c75894edd3"
 			);
 
 			Ok(())
