@@ -1,6 +1,7 @@
 mod aws_sig_v4;
 // mod aws_sig_v4_surf;
 pub mod bucket;
+pub mod multipart;
 pub mod object;
 
 use std::collections::HashMap;
@@ -109,6 +110,8 @@ impl S3Client {
 pub enum S3Body {
 	Bytes(Vec<u8>),
 	Path(PathBuf),
+	/// 已知长度的流式 body。签名走 UNSIGNED-PAYLOAD（无法预计算 SHA256）。
+	Stream(Box<dyn async_std::io::Read + Unpin + Send + Sync>, u64),
 }
 
 #[derive(Deserialize, Debug)]

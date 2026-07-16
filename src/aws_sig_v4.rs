@@ -19,13 +19,14 @@ use zjhttpc::requestx::Request;
 use crate::S3Body;
 
 const EMPTY_BODY_SHA256: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+const UNSIGNED_PAYLOAD: &str = "UNSIGNED-PAYLOAD";
 const REGION: &str = "us-east-1";
 const SERVICE: &str = "s3";
 const TERMINATOR: &str = "aws4_request";
 const AWS_ISO8601_FORMAT: &str = "%Y%m%dT%H%M%SZ";
 const AWS_AUTH_METHOD: &str = "AWS4-HMAC-SHA256";
 
-pub async  fn auth(
+pub async fn auth(
 	access_key: &str,
 	secret_key: &str,
 	mut req: Request,
@@ -42,15 +43,17 @@ pub async  fn auth(
 	let body_checksum = if let Some(body) = body {
 		match body {
 			S3Body::Bytes(data) => {
-				// TODO:
-				unimplemented!();
-				// req.body = zjhttpc::misc::Body::ByteSlice
+				req = req.set_body_slice(&data);
 				Cow::from(cal_sha256_from_bytes(&data))
-			},
+			}
 			S3Body::Path(path_buf) => {
 				req = req.set_body_file(&path_buf).await.dot()?;
 				Cow::from(cal_sha256_from_file(path_buf).await.dot()?)
-			},
+			}
+			S3Body::Stream(reader, length) => {
+				req = req.set_body_stream(reader, length);
+				Cow::from(UNSIGNED_PAYLOAD)
+			}
 		}
 	} else {
 		Cow::from(EMPTY_BODY_SHA256)
@@ -177,11 +180,11 @@ fn gen_signed_headers_str(canonical_headers: &BTreeMap<String, &str>) -> String 
 mod tests {
 
 	use super::*;
+	use async_std::fs::{File, write};
 	use async_std::task;
 	use tempfile::tempdir;
 	use zjhttpc::requestx::Request;
 	use zjhttpc::url::Url;
-	use async_std::fs::{File, write};
 
 	#[test]
 	fn test_auth_basic_request() -> Result<()> {
@@ -193,7 +196,10 @@ mod tests {
 		let mut req = Request::new("GET", url).unwrap();
 
 		let signed_req = task::block_on(async {
-			auth(access_key, secret_key, req, Some(timestamp), None).await.dot().unwrap()
+			auth(access_key, secret_key, req, Some(timestamp), None)
+				.await
+				.dot()
+				.unwrap()
 		});
 
 		assert_eq!(
@@ -258,5 +264,90 @@ mod tests {
 
 			Ok(())
 		})
+	}
+
+	#[test]
+	fn test_auth_stream_unsigned_payload() -> Result<()> {
+		let access_key = "AKIAIOSFODNN7EXAMPLE";
+		let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+		let timestamp = "20230615T123456Z".to_string();
+
+		let url = Url::parse("https://test-bucket.s3.amazonaws.com/test.bin")?;
+		let req = Request::new("PUT", url)?;
+
+		let body =
+			crate::S3Body::Stream(Box::new(async_std::io::Cursor::new(b"hello".to_vec())), 5);
+
+		let signed_req = task::block_on(async {
+			auth(access_key, secret_key, req, Some(timestamp), Some(body))
+				.await
+				.dot()
+				.unwrap()
+		});
+
+		assert_eq!(
+			signed_req
+				.headers
+				.get("x-amz-content-sha256")
+				.unwrap()
+				.first()
+				.unwrap()
+				.as_str(),
+			"UNSIGNED-PAYLOAD"
+		);
+		let auth_header = signed_req
+			.headers
+			.get("Authorization")
+			.unwrap()
+			.first()
+			.unwrap()
+			.as_str()
+			.to_owned();
+		assert!(auth_header.starts_with(
+			"AWS4-HMAC-SHA256 Credential=AKIAIOSFODNN7EXAMPLE/20230615/us-east-1/s3/aws4_request"
+		));
+		// user-agent 也被 zjhttpc 自动加入 SignedHeaders，只断言关键三个存在。
+		assert!(auth_header.contains("host"));
+		assert!(auth_header.contains("x-amz-content-sha256"));
+		assert!(auth_header.contains("x-amz-date"));
+		assert!(auth_header.contains("Signature="));
+
+		Ok(())
+	}
+
+	#[test]
+	fn test_auth_bytes_signed_payload() -> Result<()> {
+		let access_key = "AKIAIOSFODNN7EXAMPLE";
+		let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
+		let timestamp = "20230615T123456Z".to_string();
+
+		let url = Url::parse("https://test-bucket.s3.amazonaws.com/test.bin")?;
+		let req = Request::new("PUT", url)?;
+
+		let payload = b"<CompleteMultipartUpload></CompleteMultipartUpload>".to_vec();
+		let body = crate::S3Body::Bytes(payload.clone());
+
+		let signed_req = task::block_on(async {
+			auth(access_key, secret_key, req, Some(timestamp), Some(body))
+				.await
+				.dot()
+				.unwrap()
+		});
+
+		// x-amz-content-sha256 should be the actual SHA256 of the payload, not UNSIGNED-PAYLOAD.
+		let expected_sha = cal_sha256_from_bytes(&payload);
+		assert_ne!(expected_sha, "UNSIGNED-PAYLOAD");
+		assert_eq!(
+			signed_req
+				.headers
+				.get("x-amz-content-sha256")
+				.unwrap()
+				.first()
+				.unwrap()
+				.as_str(),
+			expected_sha
+		);
+
+		Ok(())
 	}
 }
