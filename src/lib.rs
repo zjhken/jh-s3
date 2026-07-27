@@ -1,23 +1,25 @@
 mod aws_sig_v4;
 // mod aws_sig_v4_surf;
 pub mod bucket;
+pub mod error;
 pub mod multipart;
 pub mod object;
 
+pub use error::{Error, Result};
+
 use std::collections::HashMap;
+use std::fmt;
 use std::fs;
 use std::path::PathBuf;
 
-use anyhow_ext::Context;
-use anyhow_ext::Result;
-use anyhow_ext::anyhow;
+use error::{ConfigSnafu, HttpClientBuilderSnafu, HttpSnafu, IoSnafu};
 use serde::Deserialize;
 use serde::Serialize;
+use snafu::prelude::*;
 use std::path::Path;
 use zjhttpc::client::ZJHttpClient;
 use zjhttpc::requestx::Request;
 use zjhttpc::response::Response;
-use zjhttpc::url::Url;
 
 #[derive(Debug)]
 pub struct S3Client {
@@ -51,7 +53,7 @@ impl S3Client {
 				cert_path,
 			)));
 		}
-		let httpc = builder.build().map_err(|e| anyhow!(e.to_string()))?;
+		let httpc = builder.build().context(HttpClientBuilderSnafu)?;
 		Ok(S3Client {
 			endpoint,
 			bucket,
@@ -64,8 +66,8 @@ impl S3Client {
 	where
 		P: AsRef<Path>,
 	{
-		let txt = fs::read_to_string(path)?;
-		let c: S3Config = toml::from_str(&txt)?;
+		let txt = fs::read_to_string(path).context(IoSnafu)?;
+		let c: S3Config = toml::from_str(&txt).context(ConfigSnafu)?;
 		Self::new(
 			c.endpoint,
 			c.bucket,
@@ -87,22 +89,15 @@ impl S3Client {
 			url.push_str("/");
 			url.push_str(p);
 		}
-		let url = Url::parse(&url)?;
-		let mut req = Request::new(method, url).dot()?;
+		let mut req = Request::new(method, &url).context(HttpSnafu)?;
 		if let Some(headers) = headers {
 			req = req.set_headers_nondup(headers);
 		}
 		if let Some(queries) = queries {
-			req = req.set_queries_serde(queries).dot()?;
+			req = req.set_queries_serde(queries).context(HttpSnafu)?;
 		}
-		req = crate::aws_sig_v4::auth(&self.access_key, &self.secret_key, req, None, body)
-			.await
-			.dot()?;
-		let resp = self
-			.httpc
-			.send(&mut req)
-			.await
-			.map_err(|err| anyhow!(err.to_string()))?;
+		req = crate::aws_sig_v4::auth(&self.access_key, &self.secret_key, req, None, body).await?;
+		let resp = self.httpc.send(&mut req).await.context(HttpSnafu)?;
 		Ok(resp)
 	}
 }
@@ -114,20 +109,30 @@ pub enum S3Body {
 	Stream(Box<dyn async_std::io::Read + Unpin + Send + Sync>, u64),
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(rename_all = "PascalCase")]
 pub struct S3Error {
-	code: String,
-	message: String,
-	resource: Option<String>,
-	request_id: Option<String>,
+	pub code: String,
+	pub message: String,
+	pub resource: Option<String>,
+	pub request_id: Option<String>,
+}
+
+impl fmt::Display for S3Error {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "code={} message=\"{}\"", self.code, self.message)?;
+		if let Some(r) = self.resource.as_ref() {
+			write!(f, " resource=\"{}\"", r)?;
+		}
+		if let Some(r) = self.request_id.as_ref() {
+			write!(f, " request_id=\"{}\"", r)?;
+		}
+		Ok(())
+	}
 }
 
 #[cfg(test)]
 mod test {
-	use crate::S3Client;
-	use anyhow_ext::Result;
-
 	#[test]
 	fn test_s3_client() {
 		// let s3client = S3Client::new(endpoint, bucket, access_key, secret_key, trust_cert_path)

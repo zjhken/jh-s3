@@ -1,17 +1,18 @@
 use std::collections::HashMap;
 
-use anyhow_ext::Context;
-use anyhow_ext::Result;
-use anyhow_ext::anyhow;
 use async_std::io::ReadExt;
 use serde::Deserialize;
 use serde::Serialize;
+use snafu::prelude::*;
 use tracing::info;
 use tracing::warn;
 use zjhttpc::response::Response;
 
 use crate::S3Client;
 use crate::S3Error;
+use crate::error::{
+	HttpSnafu, InvalidPartSizeSnafu, IoSnafu, MissingEtagSnafu, Result, S3ApiSnafu, XmlSnafu,
+};
 
 const S3_MIN_PART_SIZE: u64 = 5 * 1024 * 1024;
 
@@ -30,19 +31,14 @@ impl S3Client {
 		let q = InitiateQuery { uploads: true };
 		let mut resp = self
 			.send(Some(key), "POST", Some(&q), headers, None)
-			.await
-			.dot()?;
-		let xml = resp
-			.body_string()
-			.await
-			.map_err(|e| anyhow!(e.to_string()))
-			.dot()?;
+			.await?;
+		let xml = resp.body_string().await.context(HttpSnafu)?;
 		info!(xml);
 		if resp.is_success() {
-			Ok(serde_xml_rs::from_reader(xml.as_bytes()).dot()?)
+			Ok(serde_xml_rs::from_reader(xml.as_bytes()).context(XmlSnafu)?)
 		} else {
-			let err: S3Error = serde_xml_rs::from_reader(xml.as_bytes()).dot()?;
-			Err(anyhow!("initiate_multipart_upload failed: {:?}", err))
+			let err: S3Error = serde_xml_rs::from_reader(xml.as_bytes()).context(XmlSnafu)?;
+			S3ApiSnafu { error: err }.fail()
 		}
 	}
 
@@ -73,20 +69,15 @@ impl S3Client {
 				None,
 				Some(crate::S3Body::Bytes(body)),
 			)
-			.await
-			.dot()?;
+			.await?;
 		if !resp.is_success() {
-			let xml = resp
-				.body_string()
-				.await
-				.map_err(|e| anyhow!(e.to_string()))
-				.dot()?;
-			let err: S3Error = serde_xml_rs::from_reader(xml.as_bytes()).dot()?;
-			return Err(anyhow!("upload_part failed: {:?}", err));
+			let xml = resp.body_string().await.context(HttpSnafu)?;
+			let err: S3Error = serde_xml_rs::from_reader(xml.as_bytes()).context(XmlSnafu)?;
+			return S3ApiSnafu { error: err }.fail();
 		}
 		let etag = resp
 			.header_one("ETag")
-			.ok_or_else(|| anyhow!("upload_part: missing ETag response header"))?
+			.context(MissingEtagSnafu)?
 			.trim_matches('"')
 			.to_owned();
 		Ok(etag)
@@ -114,19 +105,14 @@ impl S3Client {
 				None,
 				Some(crate::S3Body::Bytes(xml_body.into_bytes())),
 			)
-			.await
-			.dot()?;
-		let xml = resp
-			.body_string()
-			.await
-			.map_err(|e| anyhow!(e.to_string()))
-			.dot()?;
+			.await?;
+		let xml = resp.body_string().await.context(HttpSnafu)?;
 		info!(xml);
 		if resp.is_success() {
-			Ok(serde_xml_rs::from_reader(xml.as_bytes()).dot()?)
+			Ok(serde_xml_rs::from_reader(xml.as_bytes()).context(XmlSnafu)?)
 		} else {
-			let err: S3Error = serde_xml_rs::from_reader(xml.as_bytes()).dot()?;
-			Err(anyhow!("complete_multipart_upload failed: {:?}", err))
+			let err: S3Error = serde_xml_rs::from_reader(xml.as_bytes()).context(XmlSnafu)?;
+			S3ApiSnafu { error: err }.fail()
 		}
 	}
 
@@ -138,10 +124,7 @@ impl S3Client {
 			upload_id: &'a str,
 		}
 		let q = UploadIdQuery { upload_id };
-		let resp = self
-			.send(Some(key), "DELETE", Some(&q), None, None)
-			.await
-			.dot()?;
+		let resp = self.send(Some(key), "DELETE", Some(&q), None, None).await?;
 		Ok(resp)
 	}
 
@@ -159,7 +142,7 @@ impl S3Client {
 		R: async_std::io::Read + Unpin + Send + Sync + 'static,
 	{
 		if part_size == 0 {
-			return Err(anyhow!("part_size must be > 0"));
+			return InvalidPartSizeSnafu.fail();
 		}
 		if part_size < S3_MIN_PART_SIZE && total_length > part_size {
 			warn!(
@@ -168,7 +151,7 @@ impl S3Client {
 			);
 		}
 
-		let init = self.initiate_multipart_upload(key, headers).await.dot()?;
+		let init = self.initiate_multipart_upload(key, headers).await?;
 		let upload_id = init.upload_id.clone();
 
 		let inner: Result<CompleteMultipartUploadResult> = async {
@@ -179,21 +162,15 @@ impl S3Client {
 			while remaining > 0 {
 				let to_read = remaining.min(part_size) as usize;
 				let mut buf = vec![0u8; to_read];
-				reader.read_exact(&mut buf).await.dot()?;
-				let etag = self
-					.upload_part(key, &upload_id, part_number, buf)
-					.await
-					.dot()?;
+				reader.read_exact(&mut buf).await.context(IoSnafu)?;
+				let etag = self.upload_part(key, &upload_id, part_number, buf).await?;
 				parts.push(UploadedPart { part_number, etag });
 				part_number += 1;
 				remaining = remaining.saturating_sub(to_read as u64);
 			}
 
 			if parts.is_empty() {
-				let etag = self
-					.upload_part(key, &upload_id, 1, Vec::new())
-					.await
-					.dot()?;
+				let etag = self.upload_part(key, &upload_id, 1, Vec::new()).await?;
 				parts.push(UploadedPart {
 					part_number: 1,
 					etag,
@@ -202,7 +179,6 @@ impl S3Client {
 
 			self.complete_multipart_upload(key, &upload_id, &parts)
 				.await
-				.dot()
 		}
 		.await;
 

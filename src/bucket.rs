@@ -1,9 +1,9 @@
-use anyhow_ext::Context;
-use anyhow_ext::{Result, anyhow};
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
+use snafu::prelude::*;
 use tracing::trace;
 
+use crate::error::{HttpSnafu, Result, S3ApiSnafu, XmlSnafu};
 use crate::{S3Client, S3Error};
 
 impl S3Client {
@@ -18,19 +18,14 @@ impl S3Client {
 				None, // TODO: streaming upload
 				      // None::<String>,
 			)
-			.await
-			.dot()?;
-		let xml = resp
-			.body_string()
-			.await
-			.map_err(|err| anyhow!(err.to_string()))
-			.dot()?;
+			.await?;
+		let xml = resp.body_string().await.context(HttpSnafu)?;
 		trace!(xml);
 		if resp.is_success() {
-			return Ok(serde_xml_rs::from_reader(xml.as_bytes()).dot()?);
+			return Ok(serde_xml_rs::from_reader(xml.as_bytes()).context(XmlSnafu)?);
 		} else {
-			let error: S3Error = serde_xml_rs::from_reader(xml.as_bytes()).dot()?;
-			return Err(anyhow!("s3 error = {:?}", error));
+			let error: S3Error = serde_xml_rs::from_reader(xml.as_bytes()).context(XmlSnafu)?;
+			return Err(S3ApiSnafu { error }.build());
 		}
 	}
 }
@@ -122,7 +117,7 @@ pub struct Entry {
 mod test {
 	use async_std::{fs::File, task};
 
-	use anyhow_ext::Result;
+	use crate::error::Result;
 	use async_std::io::BufReader;
 	use tracing::info;
 	use tracing_test::traced_test;
@@ -135,7 +130,8 @@ mod test {
 		let req = ListBucketParamsBuilder::default()
 			.prefix(Some("/".to_owned()))
 			.delimiter(Some("/".to_owned()))
-			.build()?;
+			.build()
+			.unwrap();
 		println!("{:?}", req);
 		Ok(())
 	}

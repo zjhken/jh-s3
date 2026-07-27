@@ -1,9 +1,6 @@
 use std::borrow::Cow;
 use std::collections::BTreeMap;
 
-use anyhow_ext::Context;
-use anyhow_ext::Result;
-use anyhow_ext::anyhow;
 use async_std::fs::File;
 use async_std::io::ReadExt;
 use async_std::path::Path;
@@ -13,10 +10,12 @@ use crypto::digest::Digest;
 use crypto::hmac::Hmac;
 use crypto::mac::Mac;
 use crypto::sha2::Sha256;
+use snafu::prelude::*;
 use tracing::info;
 use zjhttpc::requestx::Request;
 
 use crate::S3Body;
+use crate::error::{HttpSnafu, IoSnafu, Result, TimestampSplitFailedSnafu};
 
 const EMPTY_BODY_SHA256: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 const UNSIGNED_PAYLOAD: &str = "UNSIGNED-PAYLOAD";
@@ -47,8 +46,8 @@ pub async fn auth(
 				Cow::from(cal_sha256_from_bytes(&data))
 			}
 			S3Body::Path(path_buf) => {
-				req = req.set_body_file(&path_buf).await.dot()?;
-				Cow::from(cal_sha256_from_file(path_buf).await.dot()?)
+				req = req.set_body_file(&path_buf).await.context(HttpSnafu)?;
+				Cow::from(cal_sha256_from_file(path_buf).await?)
 			}
 			S3Body::Stream(reader, length) => {
 				req = req.set_body_stream(reader, length);
@@ -103,7 +102,7 @@ pub async fn auth(
 		.split('T')
 		.take(1)
 		.next()
-		.ok_or(anyhow!("split T failed"))?;
+		.context(TimestampSplitFailedSnafu)?;
 	let scope = format!("{short_date}/{REGION}/{SERVICE}/{TERMINATOR}");
 
 	let mut sha256_hasher = Sha256::new();
@@ -130,11 +129,11 @@ fn cal_sha256_from_bytes<B: AsRef<[u8]>>(bytes: B) -> String {
 }
 
 async fn cal_sha256_from_file<P: AsRef<Path>>(p: P) -> Result<String> {
-	let mut file = File::open(p).await.dot()?;
+	let mut file = File::open(p).await.context(IoSnafu)?;
 	let mut sha256_hasher = Sha256::new();
 	let mut buf = vec![0u8; 1024 * 1024];
 	loop {
-		let n = file.read(&mut buf).await.dot()?;
+		let n = file.read(&mut buf).await.context(IoSnafu)?;
 		if n == 0 {
 			break;
 		}
@@ -192,13 +191,12 @@ mod tests {
 		let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
 		let timestamp = "20230615T123456Z".to_string();
 
-		let url = Url::parse("https://test-bucket.s3.amazonaws.com/test.txt")?;
+		let url = Url::parse("https://test-bucket.s3.amazonaws.com/test.txt").unwrap();
 		let req = Request::new("GET", url).unwrap();
 
 		let signed_req = task::block_on(async {
 			auth(access_key, secret_key, req, Some(timestamp), None)
 				.await
-				.dot()
 				.unwrap()
 		});
 
@@ -249,10 +247,10 @@ mod tests {
 	#[test]
 	fn test_cal_sha256_in_stream() -> Result<()> {
 		task::block_on(async {
-			let dir = tempdir()?;
+			let dir = tempdir().unwrap();
 			let file_path = dir.path().join("test.txt");
 			let test_content = "Hello, world!";
-			write(&file_path, test_content).await?;
+			write(&file_path, test_content).await.unwrap();
 
 			let hash = cal_sha256_from_file(&file_path).await?;
 
@@ -272,8 +270,8 @@ mod tests {
 		let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
 		let timestamp = "20230615T123456Z".to_string();
 
-		let url = Url::parse("https://test-bucket.s3.amazonaws.com/test.bin")?;
-		let req = Request::new("PUT", url)?;
+		let url = Url::parse("https://test-bucket.s3.amazonaws.com/test.bin").unwrap();
+		let req = Request::new("PUT", url).unwrap();
 
 		let body =
 			crate::S3Body::Stream(Box::new(async_std::io::Cursor::new(b"hello".to_vec())), 5);
@@ -281,7 +279,6 @@ mod tests {
 		let signed_req = task::block_on(async {
 			auth(access_key, secret_key, req, Some(timestamp), Some(body))
 				.await
-				.dot()
 				.unwrap()
 		});
 
@@ -321,8 +318,8 @@ mod tests {
 		let secret_key = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY";
 		let timestamp = "20230615T123456Z".to_string();
 
-		let url = Url::parse("https://test-bucket.s3.amazonaws.com/test.bin")?;
-		let req = Request::new("PUT", url)?;
+		let url = Url::parse("https://test-bucket.s3.amazonaws.com/test.bin").unwrap();
+		let req = Request::new("PUT", url).unwrap();
 
 		let payload = b"<CompleteMultipartUpload></CompleteMultipartUpload>".to_vec();
 		let body = crate::S3Body::Bytes(payload.clone());
@@ -330,7 +327,6 @@ mod tests {
 		let signed_req = task::block_on(async {
 			auth(access_key, secret_key, req, Some(timestamp), Some(body))
 				.await
-				.dot()
 				.unwrap()
 		});
 

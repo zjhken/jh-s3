@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use anyhow_ext::Context;
-use anyhow_ext::Result;
+use crate::error::Result;
 use std::path::PathBuf;
 use zjhttpc::response::Response;
 
@@ -21,8 +20,7 @@ impl S3Client {
 				None,
 				Some(crate::S3Body::Path(PathBuf::from(path.as_ref()))),
 			)
-			.await
-			.dot()?;
+			.await?;
 
 		Ok(resp)
 	}
@@ -48,24 +46,21 @@ impl S3Client {
 				headers,
 				Some(crate::S3Body::Stream(Box::new(reader), content_length)),
 			)
-			.await
-			.dot()?;
+			.await?;
 		Ok(resp)
 	}
 
 	pub async fn get_object(&self, key: &str) -> Result<Response> {
 		let resp = self
 			.send(Some(key), "GET", None::<&u64>, None, None)
-			.await
-			.dot()?;
+			.await?;
 		return Ok(resp);
 	}
 
 	pub async fn delete_object(&self, key: &str) -> Result<Response> {
 		let resp = self
 			.send(Some(key), "DELETE", None::<&u64>, None, None)
-			.await
-			.dot()?;
+			.await?;
 		Ok(resp)
 	}
 }
@@ -73,7 +68,7 @@ impl S3Client {
 #[cfg(test)]
 mod tests {
 	use async_std::task;
-	use tracing::error;
+	use tracing::{error, info};
 
 	use super::*;
 
